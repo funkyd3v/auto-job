@@ -123,10 +123,14 @@ class StealthClient:
         # Make request with curl_cffi
         start_time = time.monotonic()
         try:
+            import sys
             from curl_cffi.requests import AsyncSession
 
             impersonate = get_impersonate_target(profile.tls_browser)
             proxy_url = proxy.url if proxy else None
+
+            print(f"[DEBUG] curl_cffi impersonate={impersonate}, profile={profile.id}", file=sys.stderr, flush=True)
+            print(f"[DEBUG] Headers: {list(headers.keys())}", file=sys.stderr, flush=True)
 
             async with AsyncSession(
                 impersonate=impersonate,
@@ -134,6 +138,8 @@ class StealthClient:
                 proxy=proxy_url,
             ) as session:
                 response = await session.get(url, headers=headers)
+
+                print(f"[DEBUG] Response status={response.status_code}, len={len(response.text)}", file=sys.stderr, flush=True)
 
                 # Parse cookies from response
                 for name, value in response.cookies.items():
