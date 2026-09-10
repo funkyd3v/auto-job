@@ -64,8 +64,12 @@ setup_venv() {
         "lxml>=5.1,<6" \
         --quiet
 
-    info "Dependencies installed:"
-    python3 -m pip list --format=columns | grep -E "httpx|curl.cffi|beautifulsoup|lxml" || true
+    # Install this package in development mode
+    info "Installing auto-job-host package..."
+    python3 -m pip install -e "${SCRIPT_DIR}" --quiet
+
+    info "Installed packages:"
+    python3 -m pip list --format=columns | grep -E "httpx|curl.cffi|beautifulsoup|lxml|auto-job" || true
 }
 
 # ─── Install Manifest ────────────────────────────────────────────────────────
