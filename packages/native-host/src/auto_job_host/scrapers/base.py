@@ -96,18 +96,23 @@ class BaseScraper(ABC):
                         pass  # Distraction page failure is non-fatal
 
                 # Fetch search page
-                html, used_profile = await self.client.get(
-                    url, session_id, profile, referer=self._get_base_url()
-                )
-                profile = used_profile
+                import sys
+                print(f"[DEBUG] Fetching: {url}", file=sys.stderr, flush=True)
+                try:
+                    html, used_profile = await self.client.get(
+                        url, session_id, profile, referer=self._get_base_url()
+                    )
+                    profile = used_profile
+                    print(f"[DEBUG] Got {len(html)} bytes of HTML", file=sys.stderr, flush=True)
+                except Exception as e:
+                    print(f"[DEBUG] client.get() failed: {e}", file=sys.stderr, flush=True)
+                    raise
 
                 # Debug: save HTML for inspection
-                import logging
-                logger = logging.getLogger("autojob-host")
                 debug_path = f"/tmp/autojob_debug_{self.source_type()}_p{page}.html"
                 with open(debug_path, "w", encoding="utf-8") as f:
                     f.write(html)
-                logger.info("Debug: saved %d bytes to %s", len(html), debug_path)
+                print(f"[DEBUG] Saved HTML to {debug_path}", file=sys.stderr, flush=True)
 
                 # Parse results
                 base_url = self._get_base_url()
@@ -124,10 +129,16 @@ class BaseScraper(ABC):
                 await jitter.maybe_take_break(len(all_jobs))
 
             except StealthRequestError as e:
+                import sys
+                print(f"[DEBUG] StealthRequestError: {e.code} - {e.message}", file=sys.stderr, flush=True)
                 if e.code == ErrorCode.BLOCKED:
                     raise  # Don't continue after block
                 # For other errors, try next page
                 continue
+            except Exception as e:
+                import sys
+                print(f"[DEBUG] Unexpected error: {e}", file=sys.stderr, flush=True)
+                raise
 
         duration = int((time.monotonic() - start_time) * 1000)
         metadata = ScrapeMetadata(
