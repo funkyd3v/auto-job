@@ -101,6 +101,14 @@ class BaseScraper(ABC):
                 )
                 profile = used_profile
 
+                # Debug: save HTML for inspection
+                import logging
+                logger = logging.getLogger("autojob-host")
+                debug_path = f"/tmp/autojob_debug_{self.source_type()}_p{page}.html"
+                with open(debug_path, "w", encoding="utf-8") as f:
+                    f.write(html)
+                logger.info("Debug: saved %d bytes to %s", len(html), debug_path)
+
                 # Parse results
                 base_url = self._get_base_url()
                 jobs = self.parse_search_html(html, base_url)
