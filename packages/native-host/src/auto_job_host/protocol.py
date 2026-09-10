@@ -294,8 +294,27 @@ def parse_message(data: dict[str, Any]) -> IncomingMessage:
         raise ValueError(f"Unknown message type: {msg_type}")
 
 
+def _read_exactly(stream: Any, n: int) -> bytes:
+    """Read exactly n bytes from a stream.
+
+    stream.read(n) on pipes returns UP TO n bytes, not exactly n.
+    This function loops until all bytes are read or EOF.
+    """
+    buf = bytearray()
+    while len(buf) < n:
+        chunk = stream.read(n - len(buf))
+        if not chunk:
+            break
+        buf.extend(chunk)
+    return bytes(buf)
+
+
 def read_message(stream: Any = None) -> IncomingMessage | None:
     """Read a length-prefixed JSON message from a binary stream.
+
+    Chrome Native Messaging format:
+      - 4 bytes: uint32 little-endian message length
+      - N bytes: UTF-8 JSON payload
 
     Args:
         stream: Binary stream (defaults to sys.stdin.buffer).
@@ -306,8 +325,8 @@ def read_message(stream: Any = None) -> IncomingMessage | None:
     if stream is None:
         stream = sys.stdin.buffer
 
-    # Read 4-byte length header
-    header = stream.read(HEADER_SIZE)
+    # Read exactly 4-byte length header
+    header = _read_exactly(stream, HEADER_SIZE)
     if not header or len(header) < HEADER_SIZE:
         return None
 
@@ -315,8 +334,8 @@ def read_message(stream: Any = None) -> IncomingMessage | None:
     if length > MAX_MESSAGE_SIZE:
         raise ValueError(f"Message too large: {length} bytes (max {MAX_MESSAGE_SIZE})")
 
-    # Read message body
-    body = stream.read(length)
+    # Read exactly message body
+    body = _read_exactly(stream, length)
     if not body or len(body) < length:
         return None
 
