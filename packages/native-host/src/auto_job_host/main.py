@@ -61,10 +61,22 @@ class NativeHost:
         # Initialize components
         self.profile_manager = ProfileManager(config.profiles_dir)
         self.proxy_pool = self._init_proxy_pool()
+
+        # Find cookies file
+        cookies_file = None
+        if config.cookies_file:
+            cookies_file = str(config.cookies_file)
+        else:
+            # Check default location
+            default_cookies = Path(__file__).parent.parent.parent / "cookies.txt"
+            if default_cookies.exists():
+                cookies_file = str(default_cookies)
+
         self.client = StealthClient(
             self.profile_manager,
             self.proxy_pool,
             config.cookie_storage_dir,
+            cookies_file,
         )
 
         # Initialize scrapers

@@ -36,6 +36,9 @@ class Config:
     # Cookie persistence
     cookie_storage_dir: Path | None = None
 
+    # Browser cookies file (EditThisCookie JSON export)
+    cookies_file: Path | None = None
+
     # Session
     session_id: str = "default"
 

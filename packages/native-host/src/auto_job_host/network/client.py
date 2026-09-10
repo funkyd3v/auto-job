@@ -51,11 +51,46 @@ class StealthClient:
         profile_manager: ProfileManager,
         proxy_pool: ProxyPool | None = None,
         cookie_storage_dir: Any = None,
+        cookies_file: str | None = None,
     ):
         self.profiles = profile_manager
         self.proxy_pool = proxy_pool
         self._cookie_jars: dict[str, CookieJar] = {}
         self._cookie_storage_dir = cookie_storage_dir
+        self._browser_cookies: dict[str, str] = {}  # domain -> cookie header string
+
+        if cookies_file:
+            self._load_cookies_file(cookies_file)
+
+    def _load_cookies_file(self, path: str) -> None:
+        """Load cookies from EditThisCookie JSON export or Netscape format."""
+        import json
+        import sys
+        from pathlib import Path
+
+        cookie_path = Path(path)
+        if not cookie_path.exists():
+            print(f"[WARN] Cookies file not found: {path}", file=sys.stderr, flush=True)
+            return
+
+        try:
+            content = cookie_path.read_text()
+            data = json.loads(content)
+
+            if isinstance(data, list):
+                # EditThisCookie JSON format
+                cookie_parts = []
+                for c in data:
+                    name = c.get("name", "")
+                    value = c.get("value", "")
+                    if name and value:
+                        cookie_parts.append(f"{name}={value}")
+                self._browser_cookies[".linkedin.com"] = "; ".join(cookie_parts)
+                print(f"[INFO] Loaded {len(data)} cookies from {path}", file=sys.stderr, flush=True)
+            else:
+                print(f"[WARN] Unknown cookie format in {path}", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"[ERROR] Failed to load cookies: {e}", file=sys.stderr, flush=True)
 
     def _get_cookie_jar(self, session_id: str) -> CookieJar:
         if session_id not in self._cookie_jars:
@@ -113,9 +148,22 @@ class StealthClient:
         from urllib.parse import urlparse
         parsed = urlparse(url)
         domain = parsed.hostname or ""
-        cookie_header = self._get_cookie_jar(session_id).get_cookie_header(domain)
-        if cookie_header:
-            headers["Cookie"] = cookie_header
+
+        # Combine browser cookies (from file) with session cookies
+        cookie_parts = []
+
+        # Browser cookies from file (highest priority)
+        for cookie_domain, cookie_str in self._browser_cookies.items():
+            if domain.endswith(cookie_domain.lstrip(".")):
+                cookie_parts.append(cookie_str)
+
+        # Session cookies from jar
+        session_cookies = self._get_cookie_jar(session_id).get_cookie_header(domain)
+        if session_cookies:
+            cookie_parts.append(session_cookies)
+
+        if cookie_parts:
+            headers["Cookie"] = "; ".join(cookie_parts)
 
         # Apply timing delay
         await timing.between_requests()
