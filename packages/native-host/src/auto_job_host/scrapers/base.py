@@ -109,7 +109,7 @@ class BaseScraper(ABC):
                     raise
 
                 # Debug: save HTML for inspection
-                debug_path = f"/tmp/autojob_debug_{self.source_type()}_p{page}.html"
+                debug_path = f"/tmp/autojob_debug_{self.source_type}_p{page}.html"
                 with open(debug_path, "w", encoding="utf-8") as f:
                     f.write(html)
                 print(f"[DEBUG] Saved HTML to {debug_path}", file=sys.stderr, flush=True)
