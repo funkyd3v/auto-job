@@ -141,6 +141,12 @@ class StealthClient:
 
                 print(f"[DEBUG] Response status={response.status_code}, len={len(response.text)}", file=sys.stderr, flush=True)
 
+                # Debug: save response for inspection
+                debug_path = f"/tmp/autojob_response_{response.status_code}.html"
+                with open(debug_path, "w", encoding="utf-8") as f:
+                    f.write(response.text)
+                print(f"[DEBUG] Saved response to {debug_path}", file=sys.stderr, flush=True)
+
                 # Parse cookies from response
                 for name, value in response.cookies.items():
                     self._get_cookie_jar(session_id).update({name: value}, domain)
