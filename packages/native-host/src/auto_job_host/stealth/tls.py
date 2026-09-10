@@ -24,13 +24,11 @@ except ImportError:
 
 
 # Mapping from profile TLS browser to curl_cffi impersonation target
+# These are the actual supported targets in curl_cffi 0.7+
 IMPERSONATE_MAP: dict[str, str] = {
     "chrome120": "chrome120",
     "chrome119": "chrome119",
-    "chrome118": "chrome118",
-    "chrome117": "chrome117",
     "chrome116": "chrome116",
-    "chrome115": "chrome115",
     "chrome110": "chrome110",
     "chrome107": "chrome107",
     "chrome104": "chrome104",
@@ -40,11 +38,10 @@ IMPERSONATE_MAP: dict[str, str] = {
     "safari17_0": "safari17_0",
     "safari15_5": "safari15_5",
     "safari15_3": "safari15_3",
-    "firefox120": "firefox120",
-    "firefox119": "firefox119",
-    "firefox117": "firefox117",
-    "firefox109": "firefox109",
-    "firefox102": "firefox102",
+    "firefox133": "firefox133",
+    "firefox135": "firefox135",
+    "firefox144": "firefox144",
+    "firefox147": "firefox147",
 }
 
 

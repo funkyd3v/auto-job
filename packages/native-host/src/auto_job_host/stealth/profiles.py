@@ -297,9 +297,9 @@ def _get_default_profiles() -> list[BrowserProfile]:
             hardware_concurrency=10,
         ),
         BrowserProfile(
-            id="firefox_121_windows",
-            name="Firefox 121 (Windows)",
-            tls_browser="firefox120",
+            id="firefox_133_windows",
+            name="Firefox 133 (Windows)",
+            tls_browser="firefox133",
             headers={
                 "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
                 "Accept-Encoding": "gzip, deflate, br",
@@ -311,7 +311,7 @@ def _get_default_profiles() -> list[BrowserProfile]:
                 "Sec-Fetch-Site": "none",
                 "Sec-Fetch-User": "?1",
                 "Upgrade-Insecure-Requests": "1",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:133.0) Gecko/20100101 Firefox/133.0",
             },
             header_order=[
                 "Host",
