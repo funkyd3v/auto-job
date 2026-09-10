@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "AutoJob — Job Hunter",
+  "version": "0.2.0",
+  "description": "Personal job-hunting automation — stealth scraping via native host, notified via backend",
+  "permissions": ["storage", "alarms", "tabs", "nativeMessaging"],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://www.indeed.com/*",
+    "https://indeed.com/*"
+  ],
+  "background": {
+    "service_worker": "src/service-worker/index.ts",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/popup/index.html",
+    "default_title": "AutoJob"
+  },
+  "options_page": "src/options/index.html",
+  "icons": {
+    "16": "public/icons/icon-16.png",
+    "48": "public/icons/icon-48.png",
+    "128": "public/icons/icon-128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'"
+  }
+}
