@@ -19,6 +19,7 @@ from .protocol import (
     ErrorCode,
     IncomingMessage,
     MessageType,
+    PingMessage,
     PongMessage,
     SearchResultMessage,
     DetailResultMessage,
