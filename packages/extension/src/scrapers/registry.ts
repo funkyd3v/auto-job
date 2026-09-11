@@ -1,12 +1,21 @@
 import type { JobSourceAdapter } from './base.js';
 import type { Source } from '../lib/types.js';
 
+import { IndeedAdapter } from './indeed.js';
+import { BdjobsAdapter } from './bdjobs.js';
+
 /**
  * Registry — Open/Closed: register new adapters without modifying orchestrator.
  * DIP: orchestrator depends on abstraction (registry), not concretions.
  */
 export class AdapterRegistry {
   private adapters: JobSourceAdapter[] = [];
+
+  constructor() {
+    // Register all adapters at construction
+    this.register(new IndeedAdapter());
+    this.register(new BdjobsAdapter());
+  }
 
   register(adapter: JobSourceAdapter): void {
     if (this.adapters.some((a) => a.sourceType === adapter.sourceType)) {

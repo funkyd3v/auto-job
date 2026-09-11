@@ -37,6 +37,7 @@ from .stealth.profiles import ProfileManager
 from .stealth import timing
 from .scrapers.linkedin import LinkedInScraper
 from .scrapers.indeed import IndeedScraper
+from .scrapers.bdjobs import BdjobsScraper
 
 logger = logging.getLogger("autojob-host")
 
@@ -83,6 +84,7 @@ class NativeHost:
         self.scrapers = {
             "linkedin": LinkedInScraper(self.client, self.profile_manager),
             "indeed": IndeedScraper(self.client, self.profile_manager),
+            "bdjobs": BdjobsScraper(self.client, self.profile_manager),
         }
 
         logger.info(
