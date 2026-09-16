@@ -6,7 +6,7 @@
 
 **auto-job** — Personal job-hunting automation system. Single-user, unattended.
 
-Chrome extension scrapes job boards → Fastify backend validates/deduplicates/matches → Telegram notifies user of new matches.
+Server-side Playwright scrapers → Fastify backend validates/deduplicates/matches → Telegram notifies user of new matches.
 
 ## Core Business Rule (Non-Negotiable)
 
@@ -22,30 +22,40 @@ Same logical job → One database record → One notification
 
 | Component | Stack |
 |-----------|-------|
-| Extension | Chrome MV3 + TypeScript + React + Vite + CRXJS + Zustand |
-| Native Host | Python + httpx + curl_cffi + BeautifulSoup + lxml |
 | Backend | Node.js + TypeScript + Fastify + Prisma + PostgreSQL + Redis + BullMQ |
+| Scraper | Python + Playwright + BeautifulSoup + lxml |
 | Dashboard | React + Vite + TypeScript + Tailwind CSS + shadcn/ui + Zustand |
 | Telegram | grammY |
-| Testing | Vitest + Playwright + pytest |
+| Testing | Vitest + Playwright |
 | Deploy | Docker Compose + Nginx + Let's Encrypt |
 
-**Explicitly excluded:** Next.js, MongoDB, multi-user, AI semantic matching, remote code execution in extension.
+**Explicitly excluded:** Chrome extension, Next.js, MongoDB, multi-user, AI semantic matching.
 
-## Native Host Architecture
+## Server-Side Scraper Architecture
 
-Chrome extension communicates with a **local Python native host** via stdin/stdout JSON messages (Chrome Native Messaging). The native host handles all HTTP scraping with stealth techniques (TLS fingerprint impersonation, header rotation, behavioral timing). Extension becomes a thin orchestration layer.
+The backend runs **Playwright-based scrapers** in a Python subprocess. The scrapers handle all HTML parsing and stealth techniques.
 
 ```
-Extension (thin) ──stdin/stdout──► Native Host (Python) ──HTTP──► LinkedIn
-     │                                    │
-     │  Raw jobs (JSON)                   │  Stealth HTTP
-     ├── submit to backend ◄──────────────┘
+Backend (Node.js)
+    │
+    │ spawns subprocess
+    ▼
+Python Scraper (Playwright)
+    │
+    │ Navigate to job board
+    │ Wait for JS rendering
+    │ Extract job listings
+    │ Return JSON via stdout
+    │
+    ▼
+Backend receives JSON
+    │
+    ├── Normalize jobs
+    ├── Fetch skills + settings
+    ├── Match against skills
+    ├── Filter by threshold
+    └── Submit to ingestion pipeline
 ```
-
-- Native host manifest: `~/.config/native-messaging-hosts/com.autojob.scraper.json`
-- Extension entry: `chrome.runtime.connectNative("com.autojob.scraper")`
-- Python project: `packages/native-host/`
 
 ## Context Files
 
@@ -69,7 +79,7 @@ Read these in order for full project understanding:
 
 ## Architecture Principle
 
-**The backend is the single source of truth.** The extension is an execution client that scrapes and submits. The backend validates, deduplicates, matches, persists, and notifies.
+**The backend is the single source of truth.** The backend schedules scrapes, executes Python scrapers, validates, deduplicates, matches, persists, and notifies.
 
 ## Development Phases
 
@@ -77,10 +87,10 @@ Read these in order for full project understanding:
 |---|-------|--------|
 | 1 | Backend Foundation (Fastify, Prisma, Auth) | Not started |
 | 2 | Job Ingestion (normalize, deduplicate, persist) | Not started |
-| 3 | Chrome Extension MVP | Not started |
+| 3 | Server-Side Scraper (Playwright + Python) | In Progress |
 | 4 | Matching Engine | Not started |
 | 5 | Telegram Notifications | Not started |
-| 6 | Scheduling | Not started |
+| 6 | Scheduling | Complete |
 | 7 | Multi-Source Scraping | Not started |
 | 8 | Job Pipeline | Not started |
 | 9 | Observability | Not started |

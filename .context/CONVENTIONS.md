@@ -17,6 +17,7 @@ auto-job/
 │   │   │   │   ├── notifications/  # Notification policy, outbox
 │   │   │   │   ├── telegram/       # Telegram adapter
 │   │   │   │   ├── scrape-runs/    # Scrape run tracking
+│   │   │   │   ├── scraper/        # Server-side scraper integration
 │   │   │   │   └── audit/          # Audit logging
 │   │   │   ├── shared/
 │   │   │   │   ├── errors/         # Custom error classes
@@ -25,39 +26,23 @@ auto-job/
 │   │   │   │   └── utils/          # Helper functions
 │   │   │   ├── config/             # Environment config
 │   │   │   └── index.ts            # Entry point
+│   │   ├── scripts/
+│   │   │   ├── scrape.py           # Python scraper entrypoint
+│   │   │   ├── requirements.txt    # Python dependencies
+│   │   │   ├── scrapers/           # Source-specific scrapers
+│   │   │   │   ├── bdjobs.py
+│   │   │   │   └── nextjobzbd.py
+│   │   │   ├── parser/             # HTML parsers
+│   │   │   │   ├── base.py
+│   │   │   │   ├── bdjobs.py
+│   │   │   │   └── nextjobzbd.py
+│   │   │   └── stealth/            # Anti-detection modules
+│   │   │       └── human.py        # Human behavior simulation
 │   │   ├── prisma/
 │   │   │   ├── schema.prisma
 │   │   │   └── migrations/
 │   │   ├── package.json
 │   │   └── tsconfig.json
-│   │
-│   ├── native-host/                # Python stealth scraper
-│   │   ├── src/auto_job_host/
-│   │   │   ├── __init__.py
-│   │   │   ├── main.py             # Entry point, message loop
-│   │   │   ├── protocol.py         # Message types, serialization
-│   │   │   ├── config.py           # Configuration
-│   │   │   ├── scrapers/           # Source-specific parsers
-│   │   │   │   ├── base.py
-│   │   │   │   ├── linkedin.py
-│   │   │   │   └── indeed.py
-│   │   │   ├── stealth/            # Anti-detection modules
-│   │   │   │   ├── tls.py          # curl_cffi TLS impersonation
-│   │   │   │   ├── profiles.py     # Browser fingerprint profiles
-│   │   │   │   ├── timing.py       # Human-like delays
-│   │   │   │   ├── jitter.py       # Request jitter
-│   │   │   │   └── headers.py      # Realistic header ordering
-│   │   │   ├── network/            # HTTP client + proxy
-│   │   │   │   ├── client.py
-│   │   │   │   ├── proxy.py
-│   │   │   │   └── cookies.py
-│   │   │   └── parser/             # HTML parsers
-│   │   │       ├── linkedin.py
-│   │   │       └── indeed.py
-│   │   ├── profiles/               # Browser fingerprint JSONs
-│   │   ├── pyproject.toml
-│   │   ├── install.sh              # Manifest installer
-│   │   └── README.md
 │   │
 │   ├── dashboard/
 │   │   ├── src/
@@ -70,29 +55,10 @@ auto-job/
 │   │   │   └── App.tsx
 │   │   ├── package.json
 │   │   └── vite.config.ts
-│   │
-│   └── extension/
-│       ├── src/
-│       │   ├── service-worker/
-│       │   │   ├── scheduler.ts    # chrome.alarms
-│       │   │   ├── orchestrator.ts # Scrape orchestration
-│       │   │   ├── api-client.ts   # Backend communication
-│       │   │   ├── native-host.ts  # Native host connection
-│       │   │   └── native-bridge.ts # Type-safe native API
-│       │   ├── scrapers/
-│       │   │   ├── base.ts         # Adapter interface
-│       │   │   ├── linkedin.ts     # Thin wrapper via native host
-│       │   │   └── indeed.ts       # Thin wrapper via native host
-│       │   ├── content/            # Content scripts
-│       │   ├── popup/              # React popup
-│       │   ├── options/            # React options page
-│       │   └── utils/
-│       ├── public/
-│       ├── manifest.json
-│       ├── package.json
-│       └── vite.config.ts
 │
 ├── docker-compose.yml
+├── docker-compose.dev.yml
+├── Dockerfile
 ├── .github/workflows/
 ├── AGENTS.md                        # AI entry point
 └── .context/                        # Context documents
@@ -196,6 +162,43 @@ fastify.register(rateLimitPlugin, { max: 100, window: '1min' });
 fastify.register(corsPlugin, { origin: allowedOrigins });
 ```
 
+## Scraper Patterns
+
+### Python Scraper Structure
+```python
+# scripts/scrapers/bdjobs.py
+class BdjobsScraper:
+    def __init__(self) -> None:
+        self.parser = BdjobsParser()
+
+    @property
+    def source_type(self) -> str:
+        return "bdjobs"
+
+    def build_search_url(self, config: dict, page: int = 1) -> str:
+        # Build search URL from config
+        ...
+
+    async def scrape(self, config: dict, max_pages: int = 3) -> tuple[list[RawJob], dict]:
+        # Scrape search results with Playwright
+        ...
+
+    async def scrape_detail(self, job: RawJob) -> RawJob | None:
+        # Scrape detail page for full description
+        ...
+```
+
+### Subprocess Execution
+```typescript
+// ScraperExecutor spawns Python subprocess
+const executor = new ScraperExecutor();
+const result = await executor.execute({
+  source_type: 'bdjobs',
+  keywords: ['Laravel'],
+  max_pages: 3,
+});
+```
+
 ## Dashboard Patterns
 
 ### Component Structure
@@ -261,130 +264,6 @@ class ApiClient {
 }
 ```
 
-## Extension Patterns
-
-### Source Adapter
-```typescript
-// Base adapter interface — thin wrapper, delegates to native host
-interface SourceAdapter {
-  canHandle(source: Source): boolean;
-  validateConfig(config: unknown): void;
-  scrape(context: ScrapeContext): Promise<RawSourceJob[]>;
-  normalize(job: RawSourceJob): RawSourceJob;
-  healthCheck(): Promise<SourceHealth>;
-}
-
-// Concrete adapter — sends request to native host via bridge
-class LinkedInAdapter implements SourceAdapter {
-  canHandle(source: Source): boolean {
-    return source.source_type === 'linkedin';
-  }
-  
-  async scrape(context: ScrapeContext): Promise<RawSourceJob[]> {
-    // Delegate to native host — no content script injection
-    return nativeBridge.scrapeSearch('linkedin', context.source);
-  }
-}
-```
-
-### Native Host Bridge (TypeScript)
-```typescript
-// Type-safe wrapper over chrome.runtime.connectNative()
-class NativeBridge {
-  private port: chrome.runtime.Port | null = null;
-  
-  connect(): void {
-    this.port = chrome.runtime.connectNative('com.autojob.scraper');
-  }
-  
-  async scrapeSearch(source: string, url: string): Promise<RawSourceJob[]> {
-    const response = await this.send<SearchResultMessage>({
-      type: 'SCRAPE_SEARCH',
-      payload: { source, url, config: {} }
-    });
-    return response.payload.jobs;
-  }
-  
-  private send<T>(message: NativeMessage): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.port!.postMessage(message);
-      this.port!.onMessage.addListener(function handler(response) {
-        if (response.type === 'ERROR') reject(new Error(response.payload.message));
-        else resolve(response as T);
-        this.port!.onMessage.removeListener(handler);
-      });
-    });
-  }
-}
-```
-
-### Service Worker Pattern
-```typescript
-// Alarm-based scheduling
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name.startsWith('scrape-')) {
-    const sourceId = alarm.name.replace('scrape-', '');
-    await orchestrator.runScrape(sourceId);
-  }
-});
-
-// Native host lifecycle management
-chrome.runtime.onInstalled.addListener(() => {
-  nativeHostManager.ensureConnected();
-});
-```
-
-### Matching Module (Extension)
-```typescript
-// extension/src/matching/
-// Matching runs in extension to avoid storing all scraped jobs.
-// Mirrors backend matching.engine.ts formula exactly.
-// Version tracked via MATCHING_VERSION constant.
-
-interface MatchingEngine {
-  calculate(job: MatchInput, skills: NormalizedSkillForMatch[]): MatchResult;
-}
-
-// Orchestrator calls matching before submission:
-const matched = matchingEngine.calculate({ title, description }, skills);
-if (matched.score >= settings.min_match_percentage) {
-  await apiClient.submitJobs(sourceId, [jobWithMatchData]);
-}
-```
-
-### Native Host Message Protocol
-```typescript
-// Length-prefixed JSON over stdin/stdout
-// Extension → Native Host:
-interface ScrapeSearchMessage {
-  type: 'SCRAPE_SEARCH';
-  payload: {
-    source: string;
-    url: string;
-    config: { proxy?: ProxyConfig; maxPages?: number };
-  };
-}
-
-// Native Host → Extension:
-interface SearchResultMessage {
-  type: 'SEARCH_RESULT';
-  payload: {
-    jobs: RawSourceJob[];
-    metadata: { duration: number; profileUsed: string };
-  };
-}
-
-// Error response:
-interface ErrorMessage {
-  type: 'ERROR';
-  payload: {
-    code: 'BLOCKED' | 'RATE_LIMITED' | 'PARSE_ERROR' | 'NETWORK_ERROR';
-    message: string;
-    retryable: boolean;
-  };
-}
-```
-
 ## Testing
 
 ### Unit Tests (Vitest)
@@ -418,7 +297,7 @@ Test the complete ingestion pipeline:
 test('user can configure sources', async ({ page }) => {
   await page.goto('/sources');
   await page.click('[data-testid="add-source"]');
-  await page.fill('[data-testid="source-name"]', 'LinkedIn');
+  await page.fill('[data-testid="source-name"]', 'Bdjobs');
   // ...
 });
 ```
@@ -528,8 +407,8 @@ refactor(matching): extract scoring to separate module
 - Debounce search/filter inputs
 - Use optimistic updates for status changes
 
-### Extension
+### Scraper
 - Process sources sequentially to avoid resource contention
-- Close tabs after scraping
-- Cache source configuration locally
-- Batch API submissions
+- Use browser pool for concurrent scraping
+- Cache source configuration in memory
+- Set appropriate timeouts on scrapes

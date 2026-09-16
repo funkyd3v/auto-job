@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum SkillType {
+  required
+  preferred
+  excluded
+}
+
+enum JobStatus {
+  NEW
+  SAVED
+  APPLIED
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+  ARCHIVED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+enum ScrapeRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+
+model User {
+  id                  String    @id @default(uuid()) @db.Uuid
+  email               String    @unique @db.VarChar(255)
+  passwordHash        String    @map("password_hash") @db.VarChar(255)
+  mfaSecretEncrypted  String?   @map("mfa_secret_encrypted") @db.Text
+  scheduleTimes       Json      @default("[]") @map("schedule_times") @db.JsonB
+  scheduleEnabled     Boolean   @default(false) @map("schedule_enabled")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt           DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  apiKeys          ApiKey[]
+  sources          Source[]
+  skills           Skill[]
+  matchSettings    MatchSettings?
+  jobs             Job[]
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+// ─── API Keys ─────────────────────────────────────────────────────────────────
+
+model ApiKey {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  keyHash      String    @map("key_hash") @db.VarChar(255)
+  keyPrefix    String    @map("key_prefix") @db.VarChar(8)
+  name         String    @db.VarChar(100)
+  scopes       Json      @db.JsonB
+  extensionId  String?   @map("extension_id") @db.VarChar(100)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz()
+  expiresAt    DateTime? @map("expires_at") @db.Timestamptz()
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("api_keys")
+}
+
+// ─── Sources ──────────────────────────────────────────────────────────────────
+
+model Source {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  name            String    @db.VarChar(100)
+  sourceType      String    @map("source_type") @db.VarChar(50)
+  baseUrl         String    @map("base_url") @db.Text
+  scraperConfig   Json      @map("scraper_config") @db.JsonB
+  configVersion   Int       @default(1) @map("config_version")
+  scraperVersion  String    @map("scraper_version") @db.VarChar(20)
+  isEnabled       Boolean   @default(true) @map("is_enabled")
+  schedule        String    @db.VarChar(50)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs       Job[]
+  scrapeRuns ScrapeRun[]
+
+  @@index([userId])
+  @@map("sources")
+}
+
+// ─── Skills ───────────────────────────────────────────────────────────────────
+
+model Skill {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  skillName      String    @map("skill_name") @db.VarChar(100)
+  weight         Int       @default(1)
+  skillType      SkillType @map("skill_type")
+  normalizedName String    @map("normalized_name") @db.VarChar(100)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aliases SkillAlias[]
+
+  @@unique([userId, normalizedName])
+  @@index([userId])
+  @@map("skills")
+}
+
+// ─── Skill Aliases ────────────────────────────────────────────────────────────
+
+model SkillAlias {
+  id              String    @id @default(uuid()) @db.Uuid
+  skillId         String    @map("skill_id") @db.Uuid
+  alias           String    @db.VarChar(100)
+  normalizedAlias String    @map("normalized_alias") @db.VarChar(100)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  skill Skill @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([skillId])
+  @@map("skill_aliases")
+}
+
+// ─── Match Settings ───────────────────────────────────────────────────────────
+
+model MatchSettings {
+  userId                   String    @id @map("user_id") @db.Uuid
+  minMatchPercentage       Int       @default(70) @map("min_match_percentage")
+  notifyOnMatch            Boolean   @default(true) @map("notify_on_match")
+  telegramBotTokenEncrypted String?  @map("telegram_bot_token_encrypted") @db.Text
+  telegramChatId           String?   @map("telegram_chat_id") @db.VarChar(100)
+  telegramBotUsername      String?   @map("telegram_bot_username") @db.VarChar(100)
+  telegramConnectedAt      DateTime? @map("telegram_connected_at") @db.Timestamptz()
+  updatedAt                DateTime  @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("match_settings")
+}
+
+// ─── Jobs ─────────────────────────────────────────────────────────────────────
+
+model Job {
+  id               String     @id @default(uuid()) @db.Uuid
+  userId           String     @map("user_id") @db.Uuid
+  sourceId         String     @map("source_id") @db.Uuid
+  externalJobId    String?    @map("external_job_id") @db.VarChar(255)
+  jobFingerprint   String     @unique @map("job_fingerprint") @db.VarChar(64)
+  title            String     @db.Text
+  company          String     @db.Text
+  location         String?    @db.Text
+  url              String     @db.Text
+  description      String     @db.Text
+  salary           String?    @db.Text
+  matchScore       Int?       @map("match_score")
+  matchingVersion  String?    @map("matching_version") @db.VarChar(20)
+  matchedSkills    Json?      @map("matched_skills") @db.JsonB
+  status           JobStatus  @default(NEW)
+  scrapedAt        DateTime   @map("scraped_at") @db.Timestamptz()
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt        DateTime   @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source         Source            @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  statusHistory  JobStatusHistory[]
+  notifications  Notification[]
+
+  @@unique([sourceId, externalJobId], name: "unique_source_external_job")
+  @@index([userId, status])
+  @@index([userId, matchScore])
+  @@index([sourceId])
+  @@map("jobs")
+}
+
+// ─── Job Status History ───────────────────────────────────────────────────────
+
+model JobStatusHistory {
+  id         String    @id @default(uuid()) @db.Uuid
+  jobId      String    @map("job_id") @db.Uuid
+  fromStatus JobStatus @map("from_status")
+  toStatus   JobStatus @map("to_status")
+  note       String?   @db.Text
+  changedAt  DateTime  @default(now()) @map("changed_at") @db.Timestamptz()
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([jobId])
+  @@map("job_status_history")
+}
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id                String             @id @default(uuid()) @db.Uuid
+  jobId             String             @map("job_id") @db.Uuid
+  channel           String             @db.VarChar(50)
+  notificationType  String             @map("notification_type") @db.VarChar(50)
+  status            NotificationStatus @default(PENDING)
+  attempts          Int                @default(0)
+  sentAt            DateTime?          @map("sent_at") @db.Timestamptz()
+  providerMessageId String?            @map("provider_message_id") @db.VarChar(100)
+  lastError         String?            @map("last_error") @db.Text
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt         DateTime           @updatedAt @map("updated_at") @db.Timestamptz()
+
+  job Job @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, channel, notificationType], name: "unique_notification_dedup")
+  @@index([jobId])
+  @@index([status])
+  @@map("notifications")
+}
+
+// ─── Outbox Events ────────────────────────────────────────────────────────────
+
+model OutboxEvent {
+  id          String      @id @default(uuid()) @db.Uuid
+  eventType   String      @map("event_type") @db.VarChar(50)
+  payload     Json        @db.JsonB
+  status      OutboxStatus @default(PENDING)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz()
+  processedAt DateTime?   @map("processed_at") @db.Timestamptz()
+
+  @@index([status])
+  @@map("outbox_events")
+}
+
+// ─── Scrape Runs ──────────────────────────────────────────────────────────────
+
+model ScrapeRun {
+  id                    String         @id @default(uuid()) @db.Uuid
+  sourceId              String         @map("source_id") @db.Uuid
+  startedAt             DateTime       @map("started_at") @db.Timestamptz()
+  finishedAt            DateTime?      @map("finished_at") @db.Timestamptz()
+  status                ScrapeRunStatus
+  pagesAttempted        Int            @default(0) @map("pages_attempted")
+  pagesSuccessful       Int            @default(0) @map("pages_successful")
+  jobsFound             Int            @default(0) @map("jobs_found")
+  jobsNew               Int            @default(0) @map("jobs_new")
+  jobsUpdated           Int            @default(0) @map("jobs_updated")
+  jobsDuplicate         Int            @default(0) @map("jobs_duplicate")
+  jobsMatched           Int            @default(0) @map("jobs_matched")
+  notificationsCreated  Int            @default(0) @map("notifications_created")
+  extensionVersion      String?        @map("extension_version") @db.VarChar(20)
+  scraperVersion        String?        @map("scraper_version") @db.VarChar(20)
+  configVersion         Int?           @map("config_version")
+  errorCode             String?        @map("error_code") @db.VarChar(50)
+  errorMessage          String?        @map("error_message") @db.Text
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz()
+
+  source Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId])
+  @@index([createdAt])
+  @@map("scrape_runs")
+}
+
+// ─── Idempotency Keys ─────────────────────────────────────────────────────────
+
+model IdempotencyKey {
+  id         String   @id @default(uuid()) @db.Uuid
+  key        String   @unique @db.VarChar(255)
+  userId     String   @map("user_id") @db.Uuid
+  scope      String   @db.VarChar(100)
+  response   Json?    @db.JsonB
+  statusCode Int?     @map("status_code")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz()
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("idempotency_keys")
+}
+
+// ─── Audit Logs ───────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  action       String   @db.VarChar(100)
+  resourceType String   @map("resource_type") @db.VarChar(50)
+  resourceId   String?  @map("resource_id") @db.Uuid
+  details      Json?    @db.JsonB
+  ipAddress    String?  @map("ip_address") @db.Inet
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
