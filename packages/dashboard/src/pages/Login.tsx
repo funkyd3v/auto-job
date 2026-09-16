@@ -8,16 +8,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Sparkles, ShieldCheck, Loader2, Eye, EyeOff } from 'lucide-react'
 
 export default function Login() {
+  const [mode, setMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
-  const { login, isLoading, error } = useAuthStore()
+  const { login, register, isLoading, error } = useAuthStore()
   const nav = useNavigate()
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await login(email, password)
+      if (mode === 'register') await register(email, password)
+      else await login(email, password)
       nav('/overview')
     } catch {}
   }
@@ -43,8 +45,8 @@ export default function Login() {
 
           <Card className="border-border/60 shadow-xl backdrop-blur">
             <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl">Welcome back</CardTitle>
-              <CardDescription>Sign in to your automation dashboard</CardDescription>
+              <CardTitle className="text-2xl">{mode === 'login' ? 'Welcome back' : 'Create account'}</CardTitle>
+              <CardDescription>{mode === 'login' ? 'Sign in to your automation dashboard' : 'Set up your single-user account'}</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={onSubmit} className="space-y-5">
@@ -55,10 +57,10 @@ export default function Login() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="password">Password</Label>
-                    <span className="text-xs text-muted-foreground">Single-user system</span>
+                    <span className="text-xs text-muted-foreground">{mode === 'register' ? 'Min 8 characters' : 'Single-user system'}</span>
                   </div>
                   <div className="relative">
-                    <Input id="password" type={show ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} required className="h-11 pr-10" />
+                    <Input id="password" type={show ? 'text' : 'password'} placeholder="••••••••" value={password} onChange={e=>setPassword(e.target.value)} required minLength={8} className="h-11 pr-10" />
                     <button type="button" onClick={()=>setShow(!show)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                       {show ? <EyeOff className="h-4 w-4"/> : <Eye className="h-4 w-4"/>}
                     </button>
@@ -68,15 +70,22 @@ export default function Login() {
                 {error && <div className="rounded-xl bg-destructive/10 border border-destructive/20 px-3 py-2.5 text-sm text-destructive">{error}</div>}
 
                 <Button type="submit" disabled={isLoading} className="w-full h-11 text-[15px] font-semibold">
-                  {isLoading ? <><Loader2 className="h-4 w-4 animate-spin"/> Signing in…</> : 'Sign in'}
+                  {isLoading ? <><Loader2 className="h-4 w-4 animate-spin"/> {mode === 'login' ? 'Signing in…' : 'Creating account…'}</> : mode === 'login' ? 'Sign in' : 'Create account'}
                 </Button>
                 <p className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
                   <ShieldCheck className="h-3.5 w-3.5"/> Secured by JWT • bcrypt • Rate limited
                 </p>
               </form>
+              <div className="mt-4 text-center text-sm text-muted-foreground">
+                {mode === 'login' ? (
+                  <>No account yet?{' '}<button onClick={()=>setMode('register')} className="text-primary hover:underline font-medium">Create one</button></>
+                ) : (
+                  <>Already have an account?{' '}<button onClick={()=>setMode('login')} className="text-primary hover:underline font-medium">Sign in</button></>
+                )}
+              </div>
             </CardContent>
           </Card>
-          <p className="text-center text-xs text-muted-foreground mt-6">Backend is source of truth — extension scrapes, backend validates & deduplicates.</p>
+          <p className="text-center text-xs text-muted-foreground mt-6">Backend is source of truth — scrapers validate, deduplicate & match.</p>
         </div>
       </div>
 
@@ -91,11 +100,11 @@ export default function Login() {
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"/> Live matching engine
             </div>
             <h2 className="text-4xl font-bold leading-tight tracking-tight">One logical job<br/>One record<br/><span className="text-white/70">One notification</span></h2>
-            <p className="text-white/70 leading-relaxed">Automate LinkedIn & Indeed scraping. Extension matches locally against your skills — only qualifying jobs land in your pipeline. Deduplicated at the database level.</p>
+            <p className="text-white/70 leading-relaxed">Server-side Playwright scrapers pull listings, the backend matches them against your skills, deduplicates at the database level, and notifies you via Telegram.</p>
             <div className="grid grid-cols-3 gap-3 pt-4">
               {[
                 { k: 'DEDUP', v: 'DB-level', d: 'fingerprint + external_id' },
-                { k: 'MATCH', v: 'Extension', d: 'threshold & weights' },
+                { k: 'MATCH', v: 'Backend', d: 'threshold & weights' },
                 { k: 'NOTIFY', v: 'Once', d: 'unique(job,channel,type)' },
               ].map(s=>(
                 <div key={s.k} className="rounded-2xl bg-white/10 backdrop-blur border border-white/10 p-4">
@@ -106,7 +115,7 @@ export default function Login() {
               ))}
             </div>
           </div>
-          <div className="text-xs text-white/50">Phase 7 • Multi-source • Chrome MV3 • Fastify + Prisma • BullMQ → Telegram</div>
+          <div className="text-xs text-white/50">Playwright • Fastify + Prisma • BullMQ → Telegram</div>
         </div>
       </div>
     </div>

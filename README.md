@@ -45,6 +45,16 @@ npm run dev
 
 Backend: http://localhost:3000 · Dashboard: http://localhost:5173
 
+## Production deploy (VPS)
+
+```bash
+bash deploy.sh
+```
+
+Generates `.env` with random secrets, builds images (Docker + compose needed),
+starts Postgres/Redis/backend/dashboard, and prints your dashboard URL.
+Add a Telegram bot token in `.env` before first run if you want notifications.
+
 ## Commands
 
 | Command              | Description                     |

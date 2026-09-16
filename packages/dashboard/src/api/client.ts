@@ -82,6 +82,13 @@ class ApiClient {
       skipAuth: true,
     })
   }
+  register(email: string, password: string) {
+    return this.request<{ user: { id: string; email: string } }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+      skipAuth: true,
+    })
+  }
   logout() { return this.request('/api/auth/logout', { method: 'POST' }) }
   refresh() { return this.request<{ accessToken: string }>('/api/auth/refresh', { method: 'POST', body: JSON.stringify({}) }) }
 
