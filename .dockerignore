@@ -1,8 +1,10 @@
-node_modules
-dist
-.env
+**/node_modules
+**/dist
+**/.env
+**/*.log
+**/__pycache__
+**/*.pyc
+**/*.tsbuildinfo
 .git
 .gitignore
-*.md
-coverage
 .dockerignore

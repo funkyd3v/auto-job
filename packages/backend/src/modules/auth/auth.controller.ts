@@ -1,11 +1,20 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { AuthService } from './auth.service.js';
+import { getConfig } from '../../config/env.js';
 import {
   LoginSchema,
   RegisterSchema,
   RefreshTokenSchema,
   CreateApiKeySchema,
 } from './auth.validators.js';
+
+const cookieOpts = (config: ReturnType<typeof getConfig>) => ({
+  httpOnly: true,
+  secure: config.COOKIE_SECURE,
+  sameSite: 'strict' as const,
+  path: '/api/auth/refresh',
+  maxAge: 7 * 24 * 60 * 60,
+});
 
 export async function authRoutes(fastify: FastifyInstance) {
   const authService = new AuthService(fastify.prisma, fastify);
@@ -34,13 +43,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       const ip = request.ip;
       const tokens = await authService.login(body, ip);
 
-      reply.setCookie('refreshToken', tokens.refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        path: '/api/auth/refresh',
-        maxAge: 7 * 24 * 60 * 60,
-      });
+      reply.setCookie('refreshToken', tokens.refreshToken, cookieOpts(getConfig()));
 
       return reply.send({
         accessToken: tokens.accessToken,
@@ -67,26 +70,14 @@ export async function authRoutes(fastify: FastifyInstance) {
         const body = RefreshTokenSchema.parse(request.body);
         const tokens = await authService.refresh(body.refreshToken);
 
-        reply.setCookie('refreshToken', tokens.refreshToken, {
-          httpOnly: true,
-          secure: true,
-          sameSite: 'strict',
-          path: '/api/auth/refresh',
-          maxAge: 7 * 24 * 60 * 60,
-        });
+        reply.setCookie('refreshToken', tokens.refreshToken, cookieOpts(getConfig()));
 
         return reply.send({ accessToken: tokens.accessToken });
       }
 
       const tokens = await authService.refresh(refreshToken);
 
-      reply.setCookie('refreshToken', tokens.refreshToken, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        path: '/api/auth/refresh',
-        maxAge: 7 * 24 * 60 * 60,
-      });
+      reply.setCookie('refreshToken', tokens.refreshToken, cookieOpts(getConfig()));
 
       return reply.send({ accessToken: tokens.accessToken });
     },
